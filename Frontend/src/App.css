@@ -1,0 +1,157 @@
+/* ── App Shell ───────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Hero Section ────────────────────────────────────────── */
+.hero-section {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Above-fold: fills viewport */
+.hero-above-fold {
+  min-height: calc(100vh - 73px);
+  display: flex;
+  align-items: center;
+  padding: 4rem 2.5rem;
+  border-bottom: 1.5px solid var(--ink);
+}
+
+.hero-inner {
+  max-width: 760px;
+}
+
+.hero-eyebrow {
+  margin-bottom: 1.25rem;
+}
+
+.hero-headline {
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 6vw, 6rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  margin-bottom: 1.75rem;
+  color: var(--ink);
+}
+
+.hero-headline em {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--fabricated);
+}
+
+.hero-body {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--ink-mid);
+  max-width: 540px;
+  line-height: 1.65;
+  margin-bottom: 2.5rem;
+}
+
+.hero-scroll-hint {
+  color: var(--ink-faint);
+  animation: nudge 2.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes nudge {
+
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translateY(5px);
+    opacity: 1;
+  }
+}
+
+/* ── Hero Search Bar ────────────────────────────────────── */
+.hero-search-wrap {
+  margin-bottom: 2rem;
+}
+
+.hero-search-inner {
+  display: flex;
+  border: 2px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  max-width: 640px;
+  background: var(--paper);
+}
+
+.hero-search-input {
+  flex: 1;
+  padding: 0.9rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  outline: none;
+  letter-spacing: -0.01em;
+}
+
+.hero-search-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.hero-search-btn {
+  flex-shrink: 0;
+  padding: 0.9rem 1.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-left: 2px solid var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease);
+}
+
+.hero-search-btn:hover:not(:disabled) {
+  background: var(--fabricated);
+}
+
+.hero-search-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hero-search-hint {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+/* ── Dashboard Grid ──────────────────────────────────────── */
+.dashboard-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  overflow: hidden;
+}
+
+.panel-graph {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-stream {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

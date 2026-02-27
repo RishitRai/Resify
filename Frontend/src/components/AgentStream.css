@@ -1,0 +1,143 @@
+.stream-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--paper);
+    overflow: hidden;
+    border-left: 1.5px solid var(--ink);
+}
+
+.stream-head {
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.stream-count {
+    color: var(--ink-faint);
+    font-size: 0.8rem;
+}
+
+.stream-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0;
+}
+
+.stream-empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.stream-empty-text {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink-faint);
+    font-style: italic;
+}
+
+.log-row {
+    display: grid;
+    grid-template-columns: 5.5rem 2.75rem 1fr;
+    gap: 0;
+    padding: 0.5rem 1.25rem 0.5rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    animation: fadeIn 0.3s var(--ease) both;
+    transition: background 0.15s;
+}
+
+.log-row:hover {
+    background: var(--paper-warm);
+}
+
+.log-ts {
+    color: var(--ink-faint);
+    font-size: 0.75rem;
+    padding-top: 0.1em;
+    flex-shrink: 0;
+}
+
+.log-badge {
+    font-family: var(--font-sans);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.35rem;
+    border-radius: 2px;
+    text-align: center;
+    align-self: start;
+    margin-top: 0.1em;
+    width: 2.25rem;
+}
+
+.log-badge-info {
+    background: var(--paper-shade);
+    color: var(--ink-mid);
+}
+
+.log-badge-success {
+    background: var(--verified-bg);
+    color: var(--verified);
+}
+
+.log-badge-warning {
+    background: var(--suspect-bg);
+    color: var(--suspect);
+}
+
+.log-badge-error {
+    background: var(--fabricated-bg);
+    color: var(--fabricated);
+}
+
+.log-msg {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--ink-mid);
+    line-height: 1.5;
+    padding-left: 0.5rem;
+}
+
+.log-info .log-msg {
+    color: var(--ink-mid);
+}
+
+.log-success .log-msg {
+    color: var(--verified);
+}
+
+.log-warning .log-msg {
+    color: var(--suspect);
+}
+
+.log-error .log-msg {
+    color: var(--fabricated);
+    font-weight: 500;
+}
+
+.log-cursor {
+    padding: 0.5rem 1.25rem;
+}
+
+.cursor-blink {
+    font-family: var(--font-mono);
+    color: var(--ink-faint);
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}

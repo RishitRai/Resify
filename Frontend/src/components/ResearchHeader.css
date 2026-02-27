@@ -1,0 +1,129 @@
+.masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2.5rem;
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    gap: 2rem;
+    transition: box-shadow 0.3s var(--ease);
+}
+
+.masthead-with-search {
+    box-shadow: 0 1px 0 var(--rule), 0 4px 20px rgba(28, 25, 22, 0.06);
+}
+
+.masthead-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-shrink: 0;
+}
+
+.masthead-mark {
+    width: 44px;
+    height: 44px;
+    border: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mark-ps {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1;
+}
+
+.masthead-title {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.masthead-sub {
+    margin-top: 0.1rem;
+    margin-bottom: 0;
+}
+
+/* ── Compact Search (slides in from top) ─── */
+.compact-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 520px;
+    flex: 1;
+    margin-left: auto;
+
+    /* Hidden by default */
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition:
+        opacity 0.25s var(--ease),
+        transform 0.25s var(--ease);
+}
+
+.compact-form-visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.compact-input {
+    flex: 1;
+    padding: 0.55rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink);
+    background: var(--paper-warm);
+    border: 1.5px solid var(--ink);
+    border-radius: 0;
+    outline: none;
+    transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.compact-input::placeholder {
+    color: var(--ink-faint);
+}
+
+.compact-input:focus {
+    background: #fff;
+    box-shadow: 2px 2px 0 var(--ink);
+}
+
+.compact-btn {
+    flex-shrink: 0;
+    padding: 0.55rem 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+    white-space: nowrap;
+}
+
+.compact-btn:hover:not(:disabled) {
+    background: var(--fabricated);
+    border-color: var(--fabricated);
+}
+
+.compact-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

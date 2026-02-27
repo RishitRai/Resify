@@ -1,0 +1,156 @@
+/* ── Stats Section ──────────────────────────────────────── */
+.stat-cards-section {
+    border-top: 1.5px solid var(--ink);
+    overflow: hidden;
+}
+
+.stat-cards-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 2.5rem;
+    background: var(--paper-warm);
+}
+
+/* ── Grid ────────────────────────────────────────────────── */
+.stat-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-left: 1.5px solid var(--ink);
+}
+
+/* ── Individual Card ─────────────────────────────────────── */
+.stat-card {
+    padding: 2rem 2rem 1.5rem;
+    border-right: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+
+    /* Scroll reveal: start hidden */
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+        opacity 0.5s var(--ease),
+        transform 0.5s var(--ease);
+}
+
+.stat-card.card-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Left edge accent bar */
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: transparent;
+    transition: background 0.3s;
+}
+
+.sev-critical::before {
+    background: var(--fabricated);
+}
+
+.sev-warning::before {
+    background: var(--suspect);
+}
+
+.sev-opportunity::before {
+    background: var(--verified);
+}
+
+.sev-quote::before {
+    background: var(--ink-faint);
+}
+
+/* Tag chip */
+.card-tag {
+    color: var(--ink-faint);
+    margin-bottom: 1.25rem;
+}
+
+/* Big stat number */
+.card-stat {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2.5rem, 4.5vw, 4rem);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 1rem;
+    color: var(--ink);
+}
+
+.sev-critical .card-stat {
+    color: var(--fabricated);
+}
+
+.sev-warning .card-stat {
+    color: var(--suspect);
+}
+
+.sev-opportunity .card-stat {
+    color: var(--verified);
+}
+
+.sev-quote .card-stat {
+    font-size: 2.5rem;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--ink);
+}
+
+/* Headline */
+.card-headline {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.45;
+    margin-bottom: 0.75rem;
+}
+
+.sev-quote .card-headline {
+    font-style: italic;
+    font-weight: 300;
+    font-size: 1.1rem;
+}
+
+/* Sub text */
+.card-sub {
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    color: var(--ink-faint);
+    line-height: 1.55;
+    font-weight: 300;
+    flex: 1;
+    margin-bottom: 1.25rem;
+}
+
+/* Source footer */
+.card-source {
+    padding-top: 0.75rem;
+    margin-top: auto;
+}
+
+.card-source .mono {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+}
+
+/* Hover lift */
+.stat-card:hover {
+    background: var(--paper-warm);
+    transition:
+        background 0.2s var(--ease),
+        opacity 0.5s var(--ease),
+        transform 0.5s var(--ease);
+}

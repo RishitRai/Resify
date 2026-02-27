@@ -1,0 +1,166 @@
+/* ═══════════════════════════════════════════════════════
+   PAPERSHIELD — EDITORIAL DESIGN SYSTEM
+   Aesthetic: Scientific Journal × Modern Art Direction
+   Palette: Warm Cream / Ink / Vermillion / Forest
+   ═══════════════════════════════════════════════════════ */
+
+:root {
+  /* Paper & Ink */
+  --paper: #F5F1E8;
+  --paper-warm: #EDE7D6;
+  --paper-shade: #E4DCC8;
+  --ink: #1C1916;
+  --ink-mid: #3D3830;
+  --ink-faint: #8A7F70;
+  --rule: rgba(28, 25, 22, 0.15);
+
+  /* Signal Colors */
+  --verified: #2C5F3A;
+  --verified-bg: #EAF2EC;
+  --suspect: #7D5A1A;
+  --suspect-bg: #F7EDD6;
+  --fabricated: #BF3B2F;
+  --fabricated-bg: #FAE8E6;
+
+  /* Typography Scale */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Syne', 'Helvetica Neue', Helvetica, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+
+  /* Sizing */
+  --radius-sm: 2px;
+  --radius: 4px;
+  --border: 1.5px solid var(--ink);
+
+  /* Transitions */
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-display);
+  font-weight: 300;
+  background-color: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  /* Subtle paper grain texture using SVG */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeBlend in='SourceGraphic' mode='multiply'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ── Typography ────────────────────────────────────────── */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 0.875em;
+  letter-spacing: -0.01em;
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ── Layout Utilities ──────────────────────────────────── */
+.rule-top {
+  border-top: var(--border);
+}
+
+.rule-bottom {
+  border-bottom: var(--border);
+}
+
+.rule-left {
+  border-left: var(--border);
+}
+
+.rule-right {
+  border-right: var(--border);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-shade);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 2px;
+}
+
+/* ── Utility: inline code block ────────────────────────── */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--paper-shade);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Fade-in animation ─────────────────────────────────── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes expandWidth {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+.anim-fade-up {
+  animation: fadeUp 0.5s var(--ease) both;
+}
