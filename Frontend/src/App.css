@@ -185,6 +185,35 @@
   overflow: hidden;
 }
 
+/* ── Footer ──────────────────────────────────────────────── */
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2.5rem;
+  border-top: 1.5px solid var(--ink);
+  background: var(--paper);
+}
+
+.footer-left {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.footer-right {
+  display: flex;
+  gap: 2rem;
+}
+
+.footer-link {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: var(--ink);
+}
+
 .panel-graph {
   position: relative;
   overflow: hidden;

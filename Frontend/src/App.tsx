@@ -190,6 +190,16 @@ export default function App() {
 
           {/* ── Evidence Cards ── */}
           <StatCards />
+
+          {/* ── Footer ── */}
+          <footer className="app-footer">
+            <div className="footer-left mono">© 2026 Resify Inc.</div>
+            <div className="footer-right">
+              <span className="footer-link label">Privacy</span>
+              <span className="footer-link label">Terms</span>
+              <span className="footer-link label">Contact</span>
+            </div>
+          </footer>
         </div>
       ) : (
         <div className="dashboard-grid anim-fade-up">
