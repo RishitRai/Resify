@@ -61,33 +61,62 @@ class FetcherAgent(BaseAgent):
             data["arxiv_id"] = arxiv_id
             try:
                 paper_metadata = await self.arxiv_api.get_paper(arxiv_id)
-                if not paper_metadata:
-                    raise Exception("FETCH_404: Paper not found on ArXiv")
-                
-                data.update(paper_metadata)
-                data["doi"] = f"10.48550/arXiv.{arxiv_id}"
-                
-                if data["pdf_url"]:
-                    data["text"] = await PDFScraper.extract_text_from_url(data["pdf_url"])
-            except APIError as e:
-                raise Exception("FETCH_FAILED: " + str(e))
+                if paper_metadata:
+                    data.update(paper_metadata)
+                    data["doi"] = f"10.48550/arXiv.{arxiv_id}"
+                    if data.get("pdf_url"):
+                        data["text"] = await PDFScraper.extract_text_from_url(data["pdf_url"])
+                else:
+                    raise APIError("Paper not found on ArXiv", 404)
+            except Exception as primary_e:
+                try:
+                    # Semantic Scholar Fallback
+                    ss_data = await self.semantic_scholar.get_paper(f"ARXIV:{arxiv_id}")
+                    if ss_data:
+                        data.update({
+                            "title": ss_data.get("title", data["title"]),
+                            "year": ss_data.get("year"),
+                            "abstract": ss_data.get("abstract"),
+                            "authors": [a.get("name") for a in ss_data.get("authors", [])] if ss_data.get("authors") else [],
+                            "doi": ss_data.get("externalIds", {}).get("DOI", f"10.48550/arXiv.{arxiv_id}")
+                        })
+                    else:
+                        raise Exception(f"FETCH_FAILED (and fallback failed): {str(primary_e)}")
+                except Exception as fallback_e:
+                    raise Exception(f"FETCH_FAILED: {str(primary_e)}. Fallback also failed: {str(fallback_e)}")
                 
         elif input_type == "doi":
             doi = self._extract_doi(input_str)
             data["doi"] = doi
             try:
                 paper_metadata = await self.crossref_api.get_paper_by_doi(doi)
-                if not paper_metadata:
-                    raise Exception("FETCH_404: Paper not found on CrossRef")
+                if paper_metadata:
+                    data.update(paper_metadata)
                 
-                data.update(paper_metadata)
-                
-                if not data["abstract"]:
+                # If crossref was missing abstract, try gracefully plugging it in
+                if paper_metadata and not data.get("abstract"):
                     ss_data = await self.semantic_scholar.get_paper_by_doi(doi)
                     if ss_data and ss_data.get("abstract"):
                         data["abstract"] = ss_data["abstract"]
-            except APIError as e:
-                raise Exception("FETCH_FAILED: " + str(e))
+                        
+                if not paper_metadata:
+                    raise APIError("Paper not found on CrossRef", 404)
+                    
+            except Exception as primary_e:
+                try:
+                    # Complete Semantic Scholar Fallback
+                    ss_data = await self.semantic_scholar.get_paper_by_doi(doi)
+                    if ss_data:
+                        data.update({
+                            "title": ss_data.get("title", data["title"]),
+                            "year": ss_data.get("year"),
+                            "abstract": ss_data.get("abstract"),
+                            "authors": [a.get("name") for a in ss_data.get("authors", [])] if ss_data.get("authors") else []
+                        })
+                    else:
+                        raise Exception(f"FETCH_FAILED (and fallback failed): {str(primary_e)}")
+                except Exception as fallback_e:
+                    raise Exception(f"FETCH_FAILED: {str(primary_e)}. Fallback also failed: {str(fallback_e)}")
 
         elif input_type == "pdf":
             try:
