@@ -57,13 +57,15 @@ def _register_default_agents():
     # Test agents (always available)
     from server.agents import dummy  # noqa: F401
 
-    # Real agents — uncomment as they're built:
-    # from server.agents import fetcher           # noqa: F401  (Person 3)
-    # from server.agents import extractor         # noqa: F401  (Person 3)
-    # from server.agents import existence         # noqa: F401  (Person 3)
-    # from server.agents import embedding_gate    # noqa: F401  (Person 2)
-    # from server.agents import semantic          # noqa: F401  (Person 2)
-    # from server.agents import synthesizer       # noqa: F401  (Person 1)
+    # Enable currently implemented agents:
+    from server.agents import fetcher           # noqa: F401
+    from server.agents import extractor         # noqa: F401
+    from server.agents import existence         # noqa: F401
+    
+    # Missing agents (commented out until implemented):
+    # from server.agents import embedding_gate    # noqa: F401
+    # from server.agents import semantic          # noqa: F401
+    # from server.agents import synthesizer       # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -88,10 +90,13 @@ app.add_middleware(
 # Mount API routes under /api prefix
 app.include_router(router, prefix="/api")
 
-# Top-level WebSocket at /ws/analyze (this is what the frontend connects to)
-# The frontend integration doc specifies: ws://.../ws/analyze
+# The WebSocket handler is already implemented in router at /api/analyze/ws
+# but the frontend expects /ws/analyze. Let's redirect or move it.
+# We'll stick to the frontend's preference for /ws/analyze at the root.
+
 @app.websocket("/ws/analyze")
 async def ws_analyze_root(websocket: WebSocket):
+    from server.api.routes import _handle_ws_analyze
     await _handle_ws_analyze(websocket)
 
 # Top-level health (outside /api prefix for k8s/monitoring)

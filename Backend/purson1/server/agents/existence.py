@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from server.agents.base import BaseAgent, AgentResult, PipelineContext, PipelineStage, registry
+from server.config import settings
 from server.utils.apis import SemanticScholarAPI, CrossRefAPI, ArXivAPI, APIError
 from google import genai
 
@@ -87,7 +88,7 @@ class ExistenceAgent(BaseAgent):
         self.crossref = CrossRefAPI()
         self.arxiv = ArXivAPI()
         try:
-            self.client = genai.Client()
+            self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         except Exception:
             self.client = None
         self.cache = ExistenceCache(db_path)
@@ -265,7 +266,7 @@ class ExistenceAgent(BaseAgent):
                             if not hasattr(self, 'client') or not self.client:
                                 return None
                             return self.client.models.generate_content(
-                                model="gemini-2.0-flash",
+                                model="gemini-3-flash",
                                 contents=prompt,
                                 config={"response_mime_type": "application/json"}
                             )

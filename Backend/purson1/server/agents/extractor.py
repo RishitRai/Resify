@@ -1,7 +1,9 @@
 import json
 import logging
+import re
 from typing import Any, Dict, List
 from server.agents.base import BaseAgent, AgentResult, PipelineContext, PipelineStage, registry
+from server.config import settings
 from google import genai
 from pydantic import BaseModel, Field
 
@@ -25,35 +27,87 @@ class ExtractorAgent(BaseAgent):
     description = "Extract citations using LLM"
     requires_tokens = True
 
-    def __init__(self, model_name="gemini-2.5-flash"):
+    def __init__(self, model_name=None):
         super().__init__()
         try:
-            self.client = genai.Client()
+            self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         except Exception as e:
             logging.error(f"Failed to init GenAI client: {e}")
             self.client = None
-        self.model_name = model_name
+        self.model_name = model_name or settings.LLM_MODEL
 
-    def _preprocess_text(self, text: str, max_chars: int = 50000) -> str:
+    def _preprocess_text(self, text: str, max_chars: int = 200_000) -> str:
+        """Use full document up to end of References (or before Appendix). Never cut the References section."""
         if not text:
             return ""
-        if len(text) > max_chars:
-            return text[:max_chars]
-        return text
-        
+        # 1) Cut at Appendix so we don't feed appendix
+        appendix_match = re.search(r"\n\s*Append(?:ix|ices)(?:\s|$|\d)", text, re.IGNORECASE)
+        if appendix_match:
+            text = text[: appendix_match.start()].rstrip()
+        # 2) Find References/Bibliography section start
+        refs_match = re.search(r"\n\s*(References|Bibliography|Reference List|Works Cited)\s*\n", text, re.IGNORECASE)
+        refs_start = refs_match.start() if refs_match else None
+        # 3) If under limit, return as-is
+        if len(text) <= max_chars:
+            return text
+        # 4) Over limit: keep start + tail so tail includes entire References section
+        tail_len = int(max_chars * 0.55)
+        head_len = max_chars - tail_len - 60
+        if refs_start is not None and refs_start < len(text) - tail_len:
+            tail_start = min(refs_start, len(text) - tail_len)
+            tail_start = max(0, tail_start)
+            return text[:head_len] + "\n\n[... truncated ...]\n\n" + text[tail_start:]
+        return text[:head_len] + "\n\n[... truncated ...]\n\n" + text[-tail_len:]
+
+    def _extract_references_section(self, text: str) -> str | None:
+        """Extract only the References/Bibliography section so the LLM can list every entry without output truncation."""
+        if not text:
+            return None
+        refs_match = re.search(
+            r"\n\s*(References|Bibliography|Reference List|Works Cited)\s*\n",
+            text,
+            re.IGNORECASE,
+        )
+        if refs_match:
+            return text[refs_match.start() :].strip()
+        return None
+
+    def _normalize_raw_citation(self, c: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize LLM output (e.g. authors list → string)."""
+        c = dict(c)
+        ref = c.get("reference") or {}
+        if isinstance(ref, dict):
+            ref = dict(ref)
+            authors = ref.get("authors")
+            if isinstance(authors, list):
+                ref["authors"] = ", ".join(str(a) for a in authors) if authors else ""
+            elif authors is None:
+                ref["authors"] = ""
+            year = ref.get("year")
+            if year is None or (isinstance(year, (str, float)) and not year):
+                ref["year"] = 0
+            elif not isinstance(year, int):
+                try:
+                    ref["year"] = int(year)
+                except (TypeError, ValueError):
+                    ref["year"] = 0
+            c["reference"] = ref
+        return c
+
     def _validate_extraction(self, citations_from_llm: List[CitationModel]) -> List[Dict]:
         valid = []
         seen_refs = set()
         for i, c in enumerate(citations_from_llm):
-            if not c.claim or len(c.claim) < 10:
+            if not c.claim or len(c.claim) < 5:
                 continue
-            if not c.reference.authors and not c.reference.year:
+            if not (c.reference.authors or c.reference.title or (c.reference.year and c.reference.year != 0)):
                 continue
-                
             if c.reference.title:
                 ref_key = c.reference.title.lower().strip()
             elif c.reference.authors and c.reference.year:
                 ref_key = f"{c.reference.authors}_{c.reference.year}".lower().strip()
+            elif c.reference.authors:
+                ref_key = c.reference.authors.lower().strip()
             else:
                 ref_key = str(i)
                 
@@ -85,48 +139,77 @@ class ExtractorAgent(BaseAgent):
             return AgentResult(agent_name=self.name, status="error", error="No paper text available for extraction")
 
         processed_text = self._preprocess_text(text)
-        system_instruction = '''
-You are an expert academic research assistant extracting citations from academic papers.
-CRITICAL INSTRUCTIONS:
-1. Extract EVERY SINGLE unique reference from the paper. Cross-check with references section.
-2. For each, provide ONE JSON object.
-3. The "claim" must be what THIS paper says ABOUT the cited work.
-4. If a paper is cited multiple times, summarize the most important claim.
-5. Search for and extract ArXiv IDs (e.g., 2411.04710) or DOIs if they are mentioned in the text or reference list.
-6. Return a JSON array only.
-        '''
+        # Prefer References section only so the LLM lists every entry (avoids output truncation)
+        refs_section = self._extract_references_section(processed_text)
+        content_for_extraction = refs_section if refs_section else processed_text
+        if refs_section:
+            instruction = (
+                "Below is ONLY the References/Bibliography section of a paper. "
+                "List EVERY reference as a JSON array. One object per reference. Do not skip any. "
+                "Each object: id (1,2,3,...), claim (use 'Cited in paper' or a one-line summary from the title), "
+                "context (null), reference: {authors, title, year, venue, arxiv_id, doi}. "
+                "Return ONLY a valid JSON array. No markdown."
+            )
+        else:
+            instruction = (
+                "Extract EVERY reference from the References/Bibliography section. "
+                "Output ONE JSON object per reference. Do not skip any. "
+                "Each object: id, claim, context, reference: {authors, title, year, venue, arxiv_id, doi}. "
+                "Return ONLY a valid JSON array. No markdown."
+            )
 
         try:
-            # Note: The generation is synchronous in the python SDK often unless mapped to async
-            # Since this is an async framework, we should properly wrap this
             import asyncio
             loop = asyncio.get_event_loop()
-            
+            use_gemma = "gemma" in (self.model_name or "").lower()
+
             def run_genai():
-                return self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=processed_text,
-                    config={
-                        "system_instruction": system_instruction,
+                if use_gemma:
+                    json_spec = "JSON array only. Each element: id, claim, context, reference (authors, title, year, venue, arxiv_id, doi)."
+                    final_contents = f"{instruction}\n{json_spec}\n\nText:\n{content_for_extraction}"
+                    config_dict = {"temperature": 0.1}
+                else:
+                    final_contents = content_for_extraction
+                    config_dict = {
+                        "system_instruction": instruction,
                         "response_mime_type": "application/json",
                         "response_schema": list[CitationModel],
-                        "temperature": 0.1,
+                        "temperature": 0.0,
                     }
+                return self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=final_contents,
+                    config=config_dict,
                 )
 
             response = await loop.run_in_executor(None, run_genai)
-            
-            if hasattr(response, "parsed") and response.parsed:
+
+            if use_gemma:
+                raw = (response.text or "").strip()
+                if raw.startswith("```"):
+                    raw = raw.split("```", 2)[1]
+                    if raw.lower().startswith("json"):
+                        raw = raw[4:].lstrip()
+                citations_raw = json.loads(raw)
+                citations = [CitationModel(**self._normalize_raw_citation(c)) for c in citations_raw]
+            elif hasattr(response, "parsed") and response.parsed:
                 citations = response.parsed
             else:
-                citations_raw = json.loads(response.text)
-                citations = [CitationModel(**c) for c in citations_raw]
-            
+                raw = (response.text or "").strip()
+                if raw.startswith("```"):
+                    raw = raw.split("```", 2)[1]
+                    if raw.lower().startswith("json"):
+                        raw = raw[4:].lstrip()
+                citations_raw = json.loads(raw)
+                citations = [CitationModel(**self._normalize_raw_citation(c)) for c in citations_raw]
+
             valid_citations = self._validate_extraction(citations)
-            
-            tokens_used = 0 
+
+            tokens_used = 0
             if response.usage_metadata:
-                tokens_used = response.usage_metadata.prompt_token_count + response.usage_metadata.candidates_token_count
+                p = response.usage_metadata.prompt_token_count
+                c = response.usage_metadata.candidates_token_count
+                tokens_used = (p or 0) + (c or 0)
                 
             return AgentResult(
                 agent_name=self.name,

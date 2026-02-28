@@ -23,7 +23,7 @@ async def test_gemini():
         client = genai.Client(api_key=api_key)
         print("✅ Client initialized successfully.")
 
-        model_name = "gemini-2.5-flash"
+        model_name = os.getenv("LLM_MODEL", "gemma-3-27b-it")
         test_prompt = "Hello Gemini! This is a simple API test. Please respond with a short confirmation that you are operational."
         
         print(f"🚀 Sending test prompt to '{model_name}'...")

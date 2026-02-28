@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     S2_API_KEY: str = ""              # Semantic Scholar (optional, raises rate limits)
 
     # --- LLM ---
-    LLM_MODEL: str = "gemini-2.0-flash"
-    LLM_TEMPERATURE: float = 0.1
+    LLM_MODEL: str = "gemma-3-27b-it"
+    LLM_TEMPERATURE: float = 0.0
     TOKEN_BUDGET_DEFAULT: int = 100_000
 
     # --- Embedding ---

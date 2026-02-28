@@ -30,24 +30,7 @@ const MOCK_EDGES: EdgeData[] = [
   { source: 'root', target: 'a4', active: false },
 ];
 
-const MOCK_LOG_SEQUENCE: Array<{
-  delay: number; agent: string; message: string; type: LogEvent['type'];
-  mutation?: () => void;
-}> = [
-    { delay: 300, agent: 'System', message: 'PaperShield v2 initialising deep inspection protocols.', type: 'info' },
-    { delay: 900, agent: 'System', message: 'Document parsed: 43 citations discovered. Dispatching 4 agents.', type: 'info' },
-    { delay: 1800, agent: 'Citation Verifier', message: 'Connecting to Semantic Scholar / CrossRef APIs…', type: 'info' },
-    { delay: 2600, agent: 'LLM Detector', message: 'Scanning §3.2 for watermark patterns and perplexity signature.', type: 'info' },
-    { delay: 3400, agent: 'Claim Extractor', message: 'Extracting primary claims vs cited source abstracts.', type: 'info' },
-    { delay: 4200, agent: 'Cross-Ref DB', message: 'Running venue + author registry checks on 43 entries.', type: 'info' },
-    { delay: 5200, agent: 'Citation Verifier', message: 'Citations [1]–[12] confirmed valid DOIs.', type: 'success' },
-    { delay: 6400, agent: 'Citation Verifier', message: 'ERROR — Citation [14]: DOI not found. "J. Smith 2024" has zero registry results.', type: 'error' },
-    { delay: 7600, agent: 'Cross-Ref DB', message: 'ALERT — Citation [22] venue is hallucinated. Confirmed AI-fabricated reference.', type: 'error' },
-    { delay: 8800, agent: 'Claim Extractor', message: 'Contradiction — Paper claims [4] showed 30% gain; actual abstract: "no significant difference".', type: 'warning' },
-    { delay: 10200, agent: 'LLM Detector', message: '§4 (Results): 92% AI-generation probability. High verbosity, generic bullet point structure.', type: 'error' },
-    { delay: 11800, agent: 'Citation Verifier', message: 'All 43 citations processed. 3 confirmed fabrications.', type: 'info' },
-    { delay: 12800, agent: 'System', message: 'All agents returned. Synthesising final report.', type: 'info' },
-  ];
+// -- Mock Logic Removal in Progress --
 
 // ── App ───────────────────────────────────────────────────
 type Phase = 'idle' | 'analyzing' | 'synthesis';
@@ -74,6 +57,8 @@ export default function App() {
     return () => observer.disconnect();
   }, [phase]);
 
+  const [report, setReport] = useState<any>(null);
+
   const handleAnalyze = (query: string) => {
     if (phase !== 'idle' || !query.trim()) return;
 
@@ -81,54 +66,83 @@ export default function App() {
     setLogs([]);
     setNodes([INITIAL_NODE]);
     setEdges([]);
+    setReport(null);
 
-    // Fan out agents after brief delay
-    setTimeout(() => {
+    const ws = new WebSocket('ws://127.0.0.1:8000/ws/analyze');
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ paper_input: query }));
+
+      // Fan out agents visually
       setNodes(MOCK_NODES.map(n => ({ ...n, status: n.id === 'root' ? 'active' : 'active' })));
       setEdges(MOCK_EDGES.map(e => ({ ...e, active: true })));
-    }, 600);
+    };
 
-    // Stream logs
-    MOCK_LOG_SEQUENCE.forEach(({ delay, agent, message, type }) => {
-      setTimeout(() => {
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'progress') {
         setLogs(prev => [...prev, {
           id: `${Date.now()}-${Math.random()}`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-          agent, message, type
+          agent: 'Pipeline',
+          message: data.message,
+          type: 'info'
         }]);
 
-        // Visual mutations
-        if (type === 'error' && agent === 'Citation Verifier' && message.includes('[14]')) {
-          setNodes(prev => [
-            ...prev,
-            { id: 'c1', label: 'Fake DOI — [14]', type: 'contradiction', status: 'complete', x: 8, y: 62 }
-          ]);
-          setEdges(prev => [...prev, { source: 'a1', target: 'c1', active: false }]);
+        // Update nodes based on progress messages
+        if (data.message.toLowerCase().includes('fetching')) {
+          setNodes(prev => prev.map(n => n.id === 'root' ? { ...n, status: 'active' } : n));
+        } else if (data.message.toLowerCase().includes('extracting')) {
+          setNodes(prev => prev.map(n => n.id === 'a2' ? { ...n, status: 'active' } : n));
+        } else if (data.message.toLowerCase().includes('existence')) {
+          setNodes(prev => prev.map(n => n.id === 'a1' ? { ...n, status: 'active' } : n));
         }
-        if (type === 'error' && agent === 'Cross-Ref DB') {
-          setNodes(prev => [
-            ...prev,
-            { id: 'c2', label: 'AI Venue — [22]', type: 'contradiction', status: 'complete', x: 24, y: 80 }
-          ]);
-          setEdges(prev => [...prev, { source: 'a4', target: 'c2', active: false }]);
-        }
-        if (type === 'error' && agent === 'LLM Detector') {
-          setNodes(prev => prev.map(n => n.id === 'a3' ? { ...n, status: 'error' } : n));
-        }
-        if (agent === 'System' && message.includes('Synthesising')) {
-          setNodes(prev => prev.map(n => ({
-            ...n,
-            status: n.type === 'contradiction' ? 'error'
-              : n.type === 'agent' ? 'complete'
-                : 'complete'
-          })));
-          setEdges(prev => prev.map(e => ({ ...e, active: false })));
-        }
-      }, delay);
-    });
+      }
+      else if (data.type === 'result') {
+        const fullReport = data.report;
+        setReport(fullReport);
+        setPhase('synthesis');
 
-    // Show synthesis panel
-    setTimeout(() => setPhase('synthesis'), 13200);
+        setLogs(prev => [...prev, {
+          id: `${Date.now()}-${Math.random()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+          agent: 'System',
+          message: 'Analysis complete. Report synthesised.',
+          type: 'success'
+        }]);
+
+        // Final node statuses
+        setNodes(prev => prev.map(n => ({
+          ...n,
+          status: 'complete'
+        })));
+        setEdges(prev => prev.map(e => ({ ...e, active: false })));
+        ws.close();
+      }
+      else if (data.type === 'error') {
+        setLogs(prev => [...prev, {
+          id: `${Date.now()}-${Math.random()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+          agent: 'Error',
+          message: data.message,
+          type: 'error'
+        }]);
+        setPhase('idle');
+        ws.close();
+      }
+    };
+
+    ws.onerror = () => {
+      setLogs(prev => [...prev, {
+        id: 'ws-error',
+        timestamp: new Date().toLocaleTimeString(),
+        agent: 'System',
+        message: 'WebSocket connection failed. Ensure backend is running.',
+        type: 'error'
+      }]);
+      setPhase('idle');
+    };
   };
 
   return (
@@ -196,17 +210,16 @@ export default function App() {
           {/* Investigation map */}
           <div className="panel-graph">
             <KnowledgeGraph nodes={nodes} edges={edges} />
-            {phase === 'synthesis' && (
+            {phase === 'synthesis' && report && (
               <SynthesisPanel
                 data={{
-                  trustScore: 32,
-                  totalCitations: 43,
-                  verified: 38,
-                  suspicious: 2,
-                  fabricated: 3,
-                  aiProbability: 85,
-                  conclusion:
-                    'HIGH RISK. Three confirmed hallucinated citations, one misattributed claim, and §4 shows strong signatures of AI generation. Recommend rejection pending author clarification.'
+                  trustScore: report.integrity_score,
+                  totalCitations: report.total_citations,
+                  verified: report.summary?.supported || 0,
+                  suspicious: report.summary?.uncertain || 0,
+                  fabricated: report.summary?.not_found || 0,
+                  aiProbability: report.stats?.ai_probability || 0,
+                  conclusion: report.summary?.conclusion || "Analysis complete."
                 }}
               />
             )}

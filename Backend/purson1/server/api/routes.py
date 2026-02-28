@@ -187,12 +187,14 @@ async def _handle_ws_analyze(websocket: WebSocket):
       Server sends: {"type": "result", "report": {...}}
       Server sends: {"type": "error", "message": "..."}
     """
-    await websocket.accept()
-    logger.info("WebSocket client connected")
-
+    logger.info(f"WebSocket connection request receiving from {websocket.client}")
     try:
+        await websocket.accept()
+        logger.info("WebSocket connection ACCEPTED")
+
         # Receive analysis request from frontend
         raw = await websocket.receive_text()
+        logger.info(f"WebSocket received data: {raw[:200]}")
         request = json.loads(raw)
 
         # Frontend sends {"paper_input": "..."} — extract the value
@@ -277,17 +279,5 @@ async def _handle_ws_analyze(websocket: WebSocket):
 
 # ---------------------------------------------------------------------------
 # WebSocket: /ws/analyze (frontend integration doc path)
-# ---------------------------------------------------------------------------
-
-@router.websocket("/ws/analyze")
-async def ws_analyze(websocket: WebSocket):
-    await _handle_ws_analyze(websocket)
-
-
-# ---------------------------------------------------------------------------
-# WebSocket: /api/analyze/ws (I/O contract path)
-# ---------------------------------------------------------------------------
-
-@router.websocket("/analyze/ws")
-async def ws_analyze_alt(websocket: WebSocket):
-    await _handle_ws_analyze(websocket)
+# WebSocket handlers are now managed in main.py to avoid 
+# routing conflicts at the /api prefix vs root.
