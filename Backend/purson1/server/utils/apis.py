@@ -139,6 +139,28 @@ class ArXivAPI:
 class CrossRefAPI:
     BASE_URL = "https://api.crossref.org/works"
 
+    @staticmethod
+    def _parse_work(msg: Dict) -> Dict[str, Any]:
+        authors = []
+        for author in msg.get("author", []):
+            family = author.get("family", "")
+            given = author.get("given", "")
+            name = f"{given} {family}".strip()
+            if name:
+                authors.append(name)
+
+        title = msg.get("title", [""])[0] if msg.get("title") else ""
+        published = msg.get("published", msg.get("published-print", msg.get("issued", {})))
+        date_parts = published.get("date-parts", [[]])[0] if published else []
+        year = date_parts[0] if date_parts else None
+
+        return {
+            "title": title,
+            "authors": authors,
+            "year": year,
+            "abstract": msg.get("abstract", ""),
+        }
+
     async def get_paper_by_doi(self, doi: str) -> Optional[Dict[str, Any]]:
         url = f"{self.BASE_URL}/{quote_plus(doi)}"
         session = APIClientManager.get_session()
@@ -146,27 +168,21 @@ class CrossRefAPI:
             async with session.get(url, timeout=10) as response:
                 if response.status == 200:
                     data = await response.json()
-                    msg = data.get("message", {})
-                    
-                    authors = []
-                    for author in msg.get("author", []):
-                        family = author.get("family", "")
-                        given = author.get("given", "")
-                        name = f"{given} {family}".strip()
-                        if name:
-                            authors.append(name)
-                            
-                    title = msg.get("title", [""])[0] if msg.get("title") else ""
-                    published = msg.get("published", msg.get("published-print", msg.get("issued", {})))
-                    date_parts = published.get("date-parts", [[]])[0]
-                    year = date_parts[0] if date_parts else None
-
-                    return {
-                        "title": title,
-                        "authors": authors,
-                        "year": year,
-                        "abstract": msg.get("abstract", "") # Abstract isn't always available here
-                    }
+                    return self._parse_work(data.get("message", {}))
                 return None
         except Exception as e:
             raise APIError(f"CrossRef Error: {str(e)}")
+
+    async def search(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
+        """Search CrossRef by title/author query."""
+        url = f"{self.BASE_URL}?query={quote_plus(query)}&rows={limit}&select=title,author,published,issued,published-print,abstract,DOI"
+        session = APIClientManager.get_session()
+        try:
+            async with session.get(url, timeout=15) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    items = data.get("message", {}).get("items", [])
+                    return [self._parse_work(item) for item in items]
+                return []
+        except Exception:
+            return []

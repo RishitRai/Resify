@@ -299,14 +299,21 @@ export default function App() {
   };
 
   // Build synthesis data from real report
+  const paperKey = report?.paper?.title
+    ? `${report.paper.title}_${report.paper.year || ''}`
+    : heroQuery;
+
   const synthesisData = report ? {
     trustScore: report.integrity_score,
     totalCitations: report.total_citations,
-    verified: report.summary.supported,
-    suspicious: report.summary.uncertain,
-    fabricated: report.summary.not_found + report.summary.contradicted,
-    aiProbability: 0, // Not implemented yet — no AI detection agent
+    supported: report.summary.supported,
+    contradicted: report.summary.contradicted,
+    uncertain: report.summary.uncertain,
+    notFound: report.summary.not_found,
+    metadataErrors: report.summary.metadata_errors,
     conclusion: buildConclusion(report),
+    citations: report.citations,
+    paperKey,
   } : null;
 
   return (
@@ -405,28 +412,23 @@ export default function App() {
 }
 
 function buildConclusion(report: PipelineReport): string {
-  const { summary, integrity_score, total_citations } = report;
+  const { summary, total_citations } = report;
+  const found = total_citations - summary.not_found;
   const parts: string[] = [];
 
-  if (integrity_score >= 90) {
-    parts.push(`HIGH CONFIDENCE. ${summary.supported} of ${total_citations} citations verified.`);
-  } else if (integrity_score >= 70) {
-    parts.push(`MODERATE CONFIDENCE. ${summary.supported} of ${total_citations} citations verified.`);
-  } else {
-    parts.push(`LOW CONFIDENCE. Only ${summary.supported} of ${total_citations} citations verified.`);
-  }
+  parts.push(`${found} of ${total_citations} citations were located in academic databases.`);
 
-  if (summary.contradicted > 0) {
-    parts.push(`${summary.contradicted} citation(s) contradicted by source material.`);
+  if (summary.supported > 0) {
+    parts.push(`${summary.supported} verified as consistent with source material.`);
   }
-  if (summary.not_found > 0) {
-    parts.push(`${summary.not_found} citation(s) could not be found in academic databases.`);
+  if (summary.contradicted > 0) {
+    parts.push(`${summary.contradicted} may conflict with the cited source — manual review recommended.`);
   }
   if (summary.uncertain > 0) {
-    parts.push(`${summary.uncertain} citation(s) need further review.`);
+    parts.push(`${summary.uncertain} could not be confidently assessed.`);
   }
-  if (summary.metadata_errors > 0) {
-    parts.push(`${summary.metadata_errors} metadata error(s) detected.`);
+  if (summary.not_found > 0) {
+    parts.push(`${summary.not_found} were not found in Semantic Scholar (may exist in other databases).`);
   }
 
   return parts.join(' ');

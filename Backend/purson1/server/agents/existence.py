@@ -192,11 +192,22 @@ class ExistenceAgent(BaseAgent):
             try:
                 results = await self.semantic_scholar.search(query, limit=5)
                 match, score = self._find_best_match(reference, results)
-                
+
+                # Fallback to CrossRef if Semantic Scholar found nothing
+                if not match and ref_title.strip():
+                    try:
+                        cr_results = await self.crossref.search(ref_title, limit=3)
+                        if cr_results:
+                            match, score = self._find_best_match(reference, cr_results)
+                            if match:
+                                match["_source"] = "crossref"
+                    except Exception:
+                        pass
+
                 if not match:
                     response_data = {
                         "status": "not_found",
-                        "reason": "No matching paper found in Semantic Scholar",
+                        "reason": "Not found in Semantic Scholar or CrossRef",
                         "query_used": query,
                         "search_results": len(results),
                         "cached": False
