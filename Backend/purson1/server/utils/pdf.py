@@ -1,3 +1,5 @@
+import ssl
+import certifi
 import aiohttp
 import asyncio
 import io
@@ -5,9 +7,11 @@ import fitz  # PyMuPDF
 
 class PDFScraper:
     @staticmethod
-    async def extract_text_from_url(url: str, max_chars: int = 50000) -> str:
+    async def extract_text_from_url(url: str, max_chars: int = 200000) -> str:
         """Downloads a PDF from a URL and extracts its text using PyMuPDF."""
-        async with aiohttp.ClientSession() as session:
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+        connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+        async with aiohttp.ClientSession(connector=connector) as session:
             try:
                 async with session.get(url, timeout=30) as response:
                     if response.status != 200:
@@ -19,7 +23,7 @@ class PDFScraper:
                 raise Exception("Timeout downloading PDF")
 
     @staticmethod
-    def extract_text_from_bytes(pdf_bytes: bytes, max_chars: int = 50000) -> str:
+    def extract_text_from_bytes(pdf_bytes: bytes, max_chars: int = 200000) -> str:
         """Extracts text from PDF bytes."""
         try:
             doc = fitz.open("pdf", pdf_bytes)

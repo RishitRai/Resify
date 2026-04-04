@@ -11,10 +11,13 @@ export interface LogEvent {
 
 const AGENT_ABBREVS: Record<string, string> = {
     'System': 'SYS',
-    'Citation Verifier': 'CIT',
-    'LLM Detector': 'LLM',
-    'Claim Extractor': 'CLM',
-    'Cross-Reference DB': 'XDB',
+    'Pipeline': 'PIP',
+    'Fetcher': 'FET',
+    'Citation Extractor': 'EXT',
+    'Existence Checker': 'EXI',
+    'Embedding Gate': 'EMB',
+    'LLM Verifier': 'LLM',
+    'Synthesizer': 'SYN',
 };
 
 interface AgentStreamProps {

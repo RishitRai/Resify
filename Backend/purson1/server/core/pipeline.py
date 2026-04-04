@@ -161,9 +161,10 @@ class PipelineOrchestrator:
         # Execute
         t0 = time.perf_counter()
         try:
+            from server.config import settings
             result = await asyncio.wait_for(
                 agent.process(ctx),
-                timeout=120.0,
+                timeout=settings.AGENT_TIMEOUT_SECONDS,
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000
             result.latency_ms = round(elapsed_ms, 1)

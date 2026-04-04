@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     USE_FINGERPRINTS: bool = True
 
     # --- Agent timeouts ---
-    AGENT_TIMEOUT_SECONDS: float = 120.0
+    AGENT_TIMEOUT_SECONDS: float = 500.0
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

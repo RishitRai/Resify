@@ -1,4 +1,6 @@
 import asyncio
+import ssl
+import certifi
 import aiohttp
 import xml.etree.ElementTree as ET
 from typing import Optional, List, Dict, Any
@@ -16,8 +18,8 @@ class APIClientManager:
     @classmethod
     def get_session(cls) -> aiohttp.ClientSession:
         if cls._session is None or cls._session.closed:
-            # Create a session with a balanced connector limit for scraping
-            connector = aiohttp.TCPConnector(limit=100, limit_per_host=20)
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(limit=100, limit_per_host=20, ssl=ssl_ctx)
             cls._session = aiohttp.ClientSession(connector=connector)
         return cls._session
 
@@ -28,21 +30,34 @@ class APIClientManager:
 
 class SemanticScholarAPI:
     BASE_URL = "https://api.semanticscholar.org/graph/v1"
+    _last_request_time: float = 0.0
+    _min_interval: float = 0.35  # ~3 req/sec max to stay under rate limits
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
         self.headers = {"x-api-key": api_key} if api_key else {}
         self.fields = "title,authors,year,abstract,paperId,externalIds,citationCount"
 
+    async def _throttle(self):
+        """Simple rate limiter shared across all instances."""
+        now = asyncio.get_event_loop().time()
+        wait = SemanticScholarAPI._min_interval - (now - SemanticScholarAPI._last_request_time)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        SemanticScholarAPI._last_request_time = asyncio.get_event_loop().time()
+
     async def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        await self._throttle()
         url = f"{self.BASE_URL}/paper/search?query={quote_plus(query)}&limit={limit}&fields={self.fields}"
         return await self._get(url, is_search=True)
 
     async def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
+        await self._throttle()
         url = f"{self.BASE_URL}/paper/{paper_id}?fields={self.fields}"
         return await self._get(url)
 
     async def get_paper_by_doi(self, doi: str) -> Optional[Dict[str, Any]]:
+        await self._throttle()
         url = f"{self.BASE_URL}/paper/DOI:{doi}?fields={self.fields}"
         return await self._get(url)
 
@@ -124,6 +139,28 @@ class ArXivAPI:
 class CrossRefAPI:
     BASE_URL = "https://api.crossref.org/works"
 
+    @staticmethod
+    def _parse_work(msg: Dict) -> Dict[str, Any]:
+        authors = []
+        for author in msg.get("author", []):
+            family = author.get("family", "")
+            given = author.get("given", "")
+            name = f"{given} {family}".strip()
+            if name:
+                authors.append(name)
+
+        title = msg.get("title", [""])[0] if msg.get("title") else ""
+        published = msg.get("published", msg.get("published-print", msg.get("issued", {})))
+        date_parts = published.get("date-parts", [[]])[0] if published else []
+        year = date_parts[0] if date_parts else None
+
+        return {
+            "title": title,
+            "authors": authors,
+            "year": year,
+            "abstract": msg.get("abstract", ""),
+        }
+
     async def get_paper_by_doi(self, doi: str) -> Optional[Dict[str, Any]]:
         url = f"{self.BASE_URL}/{quote_plus(doi)}"
         session = APIClientManager.get_session()
@@ -131,27 +168,21 @@ class CrossRefAPI:
             async with session.get(url, timeout=10) as response:
                 if response.status == 200:
                     data = await response.json()
-                    msg = data.get("message", {})
-                    
-                    authors = []
-                    for author in msg.get("author", []):
-                        family = author.get("family", "")
-                        given = author.get("given", "")
-                        name = f"{given} {family}".strip()
-                        if name:
-                            authors.append(name)
-                            
-                    title = msg.get("title", [""])[0] if msg.get("title") else ""
-                    published = msg.get("published", msg.get("published-print", msg.get("issued", {})))
-                    date_parts = published.get("date-parts", [[]])[0]
-                    year = date_parts[0] if date_parts else None
-
-                    return {
-                        "title": title,
-                        "authors": authors,
-                        "year": year,
-                        "abstract": msg.get("abstract", "") # Abstract isn't always available here
-                    }
+                    return self._parse_work(data.get("message", {}))
                 return None
         except Exception as e:
             raise APIError(f"CrossRef Error: {str(e)}")
+
+    async def search(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
+        """Search CrossRef by title/author query."""
+        url = f"{self.BASE_URL}?query={quote_plus(query)}&rows={limit}&select=title,author,published,issued,published-print,abstract,DOI"
+        session = APIClientManager.get_session()
+        try:
+            async with session.get(url, timeout=15) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    items = data.get("message", {}).get("items", [])
+                    return [self._parse_work(item) for item in items]
+                return []
+        except Exception:
+            return []

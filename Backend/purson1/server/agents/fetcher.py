@@ -11,9 +11,10 @@ class FetcherAgent(BaseAgent):
     
     def __init__(self):
         super().__init__()
+        from server.config import settings
         self.arxiv_api = ArXivAPI()
         self.crossref_api = CrossRefAPI()
-        self.semantic_scholar = SemanticScholarAPI()
+        self.semantic_scholar = SemanticScholarAPI(api_key=settings.S2_API_KEY or None)
 
     def _detect_input_type(self, input_str: str) -> str:
         if "arxiv.org" in input_str or re.match(r"^\d{4}\.\d{4,5}(v\d+)?$", input_str):

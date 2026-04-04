@@ -128,12 +128,26 @@ async def analyze_upload(file: UploadFile = File(...)):
         )
 
     try:
-        # Pass PDF bytes through the pipeline
-        # The fetcher agent is responsible for PDF→text extraction
+        # Extract text from PDF bytes before passing to pipeline
+        from server.utils.pdf import PDFScraper
+        try:
+            extracted_text = PDFScraper.extract_text_from_bytes(content)
+        except Exception as pdf_err:
+            return JSONResponse(
+                status_code=400,
+                content=ErrorResponse(
+                    error=ErrorDetail(
+                        code="PDF_PARSE_FAILED",
+                        message=f"Could not extract text from PDF: {pdf_err}",
+                        stage="validation",
+                    )
+                ).model_dump(),
+            )
+
         report = await pipeline.run(
             url="",
             doi="",
-            text="",  # fetcher agent handles PDF bytes via metadata
+            text=extracted_text,
         )
         return report
     except Exception as e:
@@ -148,6 +162,82 @@ async def analyze_upload(file: UploadFile = File(...)):
                 )
             ).model_dump(),
         )
+
+
+# ---------------------------------------------------------------------------
+# REST: Manual citation override (stored in SQLite)
+# ---------------------------------------------------------------------------
+
+import aiosqlite
+import os
+
+OVERRIDES_DB = os.path.join(os.path.dirname(os.path.dirname(__file__)), "overrides.db")
+
+async def _init_overrides_db():
+    async with aiosqlite.connect(OVERRIDES_DB) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS overrides (
+                paper_key TEXT NOT NULL,
+                citation_id INTEGER NOT NULL,
+                verdict TEXT NOT NULL,
+                notes TEXT DEFAULT '',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (paper_key, citation_id)
+            )
+        """)
+        await db.commit()
+
+
+@router.post("/override")
+async def set_override(body: dict):
+    """Save a manual verdict override for a citation.
+    Body: {paper_key, citation_id, verdict, notes?}
+    """
+    await _init_overrides_db()
+    paper_key = body.get("paper_key", "")
+    cid = body.get("citation_id", 0)
+    verdict = body.get("verdict", "")
+    notes = body.get("notes", "")
+
+    if not paper_key or not cid or verdict not in ("supported", "contradicted", "uncertain", "not_found"):
+        return JSONResponse(status_code=400, content={"error": "Invalid override data"})
+
+    async with aiosqlite.connect(OVERRIDES_DB) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO overrides (paper_key, citation_id, verdict, notes) VALUES (?, ?, ?, ?)",
+            (paper_key, cid, verdict, notes),
+        )
+        await db.commit()
+
+    return {"status": "ok", "paper_key": paper_key, "citation_id": cid, "verdict": verdict}
+
+
+@router.get("/overrides/{paper_key}")
+async def get_overrides(paper_key: str):
+    """Get all manual overrides for a paper."""
+    await _init_overrides_db()
+    async with aiosqlite.connect(OVERRIDES_DB) as db:
+        async with db.execute(
+            "SELECT citation_id, verdict, notes FROM overrides WHERE paper_key = ?",
+            (paper_key,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return {str(r[0]): {"verdict": r[1], "notes": r[2]} for r in rows}
+
+
+@router.delete("/override")
+async def delete_override(body: dict):
+    """Remove a manual override."""
+    await _init_overrides_db()
+    paper_key = body.get("paper_key", "")
+    cid = body.get("citation_id", 0)
+    async with aiosqlite.connect(OVERRIDES_DB) as db:
+        await db.execute(
+            "DELETE FROM overrides WHERE paper_key = ? AND citation_id = ?",
+            (paper_key, cid),
+        )
+        await db.commit()
+    return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------

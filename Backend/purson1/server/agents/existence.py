@@ -79,29 +79,32 @@ class ExistenceAgent(BaseAgent):
     description = "Check citation existence"
     requires_tokens = False
 
-    def __init__(self, db_path="existence_cache.db", concurrency_limit=5):
+    def __init__(self, db_path="existence_cache.db", concurrency_limit=2):
         super().__init__()
-        self.semantic_scholar = SemanticScholarAPI()
+        from server.config import settings
+        self.semantic_scholar = SemanticScholarAPI(api_key=settings.S2_API_KEY or None)
         self.crossref = CrossRefAPI()
         self.cache = ExistenceCache(db_path)
         self.concurrency_limit = concurrency_limit
 
     def _find_best_match(self, reference: dict, results: list) -> tuple[Optional[dict], int]:
-        ref_title = reference.get("title", "")
+        ref_title = reference.get("title", "") or ""
         ref_year = reference.get("year")
         ref_author = get_first_author_lastname(reference.get("authors", ""))
-        
+        has_title = bool(ref_title.strip())
+
         best_score = 0
         best_match = None
-        
+
         for paper in results:
             score = 0
-            
+
             # Title similarity
             paper_title = paper.get("title", "")
-            title_sim = word_overlap(ref_title, paper_title)
-            score += title_sim * 50
-            
+            if has_title and paper_title:
+                title_sim = word_overlap(ref_title, paper_title)
+                score += title_sim * 50
+
             # Year match
             paper_year = paper.get("year")
             if paper_year and ref_year:
@@ -114,7 +117,7 @@ class ExistenceAgent(BaseAgent):
                         score += 15
                 except ValueError:
                     pass
-            
+
             # Author match
             paper_authors = []
             if isinstance(paper.get("authors"), list):
@@ -126,12 +129,14 @@ class ExistenceAgent(BaseAgent):
 
             if ref_author and any(ref_author in a for a in paper_authors):
                 score += 20
-            
+
             if score > best_score:
                 best_score = score
                 best_match = paper
-                
-        if best_score >= 60:
+
+        # When no title was provided, author+year (50) is strong enough
+        threshold = 60 if has_title else 45
+        if best_score >= threshold:
             return best_match, best_score
         return None, best_score
 
@@ -175,18 +180,34 @@ class ExistenceAgent(BaseAgent):
                 cached_data["cached"] = True
                 return cid, cached_data
 
-            query = f"{ref_title} {first_author} {ref_year}".strip()
+            # Build search query — use title if available, otherwise use claim for context
+            if ref_title.strip():
+                query = f"{ref_title} {first_author} {ref_year}".strip()
+            else:
+                claim_snippet = (cit.get("claim", "") or "")[:80]
+                query = f"{ref_authors} {ref_year} {claim_snippet}".strip()
             if not query:
                 return cid, {"status": "error", "reason": "Insufficient query parameters"}
 
             try:
                 results = await self.semantic_scholar.search(query, limit=5)
                 match, score = self._find_best_match(reference, results)
-                
+
+                # Fallback to CrossRef if Semantic Scholar found nothing
+                if not match and ref_title.strip():
+                    try:
+                        cr_results = await self.crossref.search(ref_title, limit=3)
+                        if cr_results:
+                            match, score = self._find_best_match(reference, cr_results)
+                            if match:
+                                match["_source"] = "crossref"
+                    except Exception:
+                        pass
+
                 if not match:
                     response_data = {
                         "status": "not_found",
-                        "reason": "No matching paper found in Semantic Scholar",
+                        "reason": "Not found in Semantic Scholar or CrossRef",
                         "query_used": query,
                         "search_results": len(results),
                         "cached": False
